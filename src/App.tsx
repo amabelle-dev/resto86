@@ -6,11 +6,12 @@ import { getFirestore, doc, setDoc, onSnapshot } from 'firebase/firestore';
 
 /**
  * RESTO 86 - CLOUD EDITION
+ * Final Working Version
  */
 
 // ----- Firebase Setup -----
 const fallbackConfig = {
-  apiKey: "AIzaSyAL5918UZweAy2aWUclf02iayVpN33N6kA", 
+  apiKey: "AIzaSyAL59l8UZWeAy2aWUcLF02iayVpN33N6kA", 
   authDomain: "resto-86.firebaseapp.com",
   projectId: "resto-86",
   storageBucket: "resto-86.firebasestorage.app",
@@ -19,6 +20,7 @@ const fallbackConfig = {
   measurementId: "G-Z9NQT0HB95"
 };
 
+// This ensures it works both in StackBlitz and on your live Vercel site
 const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : fallbackConfig;
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -49,8 +51,8 @@ const SESSION_KEY = "resto86_session_cloud_v1";
 const MAX_HISTORY = 500;
 
 // ----- Gemini API Integration -----
-const callGemini = async (prompt) => {
-  const apiKey = "";
+const callGemini = async (prompt: string) => {
+  const apiKey = ""; // Canvas internal key provided at runtime
   const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
   const payload = { contents: [{ parts: [{ text: prompt }] }] };
 
@@ -71,12 +73,12 @@ const callGemini = async (prompt) => {
 // ----- Helpers -----
 const nowISO = () => new Date().toISOString();
 const uid = () => Math.random().toString(36).slice(2, 10);
-const cn = (...a) => a.filter(Boolean).join(" ");
+const cn = (...a: any[]) => a.filter(Boolean).join(" ");
 
-const fmtWithSec = (iso) =>
+const fmtWithSec = (iso: string) =>
   new Date(iso).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
 
-const spanShort = (ms) => {
+const spanShort = (ms: number) => {
   const safe = Math.max(0, ms);
   const m = Math.floor(safe / 60000);
   if (safe > 0 && m === 0) return "<1m";
@@ -89,10 +91,10 @@ const spanShort = (ms) => {
   return remH ? `${d}d${remH}h` : `${d}d`;
 };
 
-const sinceShort = (iso) => spanShort(Date.now() - new Date(iso).getTime());
-const durationShort = (startIso, endIso) => (!startIso || !endIso ? "—" : spanShort(new Date(endIso).getTime() - new Date(startIso).getTime()));
+const sinceShort = (iso: string) => spanShort(Date.now() - new Date(iso).getTime());
+const durationShort = (startIso: string, endIso: string) => (!startIso || !endIso ? "—" : spanShort(new Date(endIso).getTime() - new Date(startIso).getTime()));
 
-const copyToClipboard = (text, onSuccess, onFail) => {
+const copyToClipboard = (text: string, onSuccess?: () => void, onFail?: () => void) => {
   const textArea = document.createElement("textarea");
   textArea.value = text;
   document.body.appendChild(textArea);
@@ -135,7 +137,7 @@ function buildDefaultState() {
   };
 }
 
-function normalizeState(raw) {
+function normalizeState(raw: any) {
   const base = buildDefaultState();
   const merged = { ...base, ...(raw || {}) };
   const branches = Array.isArray(merged.branches) && merged.branches.length ? merged.branches : DEFAULT_BRANCHES;
@@ -172,7 +174,7 @@ function normalizeState(raw) {
 }
 
 // ----- Reusable UI Components -----
-const Modal = ({ open, title, onClose, children, max = "max-w-md" }) => {
+const Modal = ({ open, title, onClose, children, max = "max-w-md" }: any) => {
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
@@ -189,7 +191,7 @@ const Modal = ({ open, title, onClose, children, max = "max-w-md" }) => {
   );
 };
 
-const SearchInput = ({ value, onChange, placeholder }) => (
+const SearchInput = ({ value, onChange, placeholder }: any) => (
   <div className="flex items-center gap-2 border border-slate-200 bg-white rounded-xl px-3 py-2 focus-within:border-slate-400 focus-within:ring-2 focus-within:ring-slate-100 transition-all flex-1">
     <Search className="w-4 h-4 text-slate-400 flex-shrink-0" />
     <input 
@@ -206,13 +208,13 @@ const SearchInput = ({ value, onChange, placeholder }) => (
   </div>
 );
 
-function RoleBadge({ session }) {
+function RoleBadge({ session }: any) {
   if (!session) return null;
   const config = {
     admin: { bg: "bg-slate-900", icon: Shield, text: "Admin" },
     agent: { bg: "bg-indigo-600", icon: User, text: "Agent" },
     branch: { bg: "bg-emerald-600", icon: User, text: session.branch }
-  }[session.role === "branch" ? "branch" : session.role];
+  }[session.role === "branch" ? "branch" : (session.role as "admin" | "agent")];
 
   const Icon = config.icon;
   return (
@@ -224,14 +226,14 @@ function RoleBadge({ session }) {
 
 // ----- Main App -----
 export default function App() {
-  const [user, setUser] = useState(null);
-  const [localData, setLocalData] = useState(null);
+  const [user, setUser] = useState<any>(null);
+  const [localData, setLocalData] = useState<any>(null);
   const [isDbLoading, setIsDbLoading] = useState(true);
-  const [dbError, setDbError] = useState(null); 
+  const [dbError, setDbError] = useState<string | null>(null); 
   
-  const latestDataRef = useRef(null);
+  const latestDataRef = useRef<any>(null);
 
-  const [session, setSession] = useState(() => {
+  const [session, setSession] = useState<any>(() => {
     try {
       const raw = window.localStorage.getItem(SESSION_KEY);
       if (raw) return JSON.parse(raw);
@@ -241,10 +243,10 @@ export default function App() {
 
   const [activeTab, setActiveTab] = useState("staff");
   const [selectedBranch, setSelectedBranch] = useState(DEFAULT_BRANCHES[0]);
-  const [toast, setToast] = useState(null);
-  const toastTimeoutRef = useRef(null);
+  const [toast, setToast] = useState<string | null>(null);
+  const toastTimeoutRef = useRef<any>(null);
   const [confirmLogoutOpen, setConfirmLogoutOpen] = useState(false);
-  const [noteModal, setNoteModal] = useState({ open: false, branch: "", item: null, value: "", error: "" });
+  const [noteModal, setNoteModal] = useState<any>({ open: false, branch: "", item: null, value: "", error: "" });
   const [nowTick, setNowTick] = useState(Date.now());
 
   // Filters
@@ -264,8 +266,8 @@ export default function App() {
 
   // Gemini State
   const [isGeneratingReason, setIsGeneratingReason] = useState(false);
-  const [apologyModal, setApologyModal] = useState({ open: false, item: null, text: "", loading: false });
-  const [insights, setInsights] = useState({ text: "", loading: false });
+  const [apologyModal, setApologyModal] = useState<any>({ open: false, item: null, text: "", loading: false });
+  const [insights, setInsights] = useState<any>({ text: "", loading: false });
 
   // Settings Forms
   const [adminPin, setAdminPin] = useState("1234");
@@ -337,7 +339,7 @@ export default function App() {
     } catch {}
   }, [session]);
 
-  const showToast = (msg) => {
+  const showToast = (msg: string) => {
     setToast(msg);
     if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
     toastTimeoutRef.current = setTimeout(() => setToast(null), 2500);
@@ -348,7 +350,7 @@ export default function App() {
     return () => clearInterval(t);
   }, []);
 
-  const updateData = async (updater) => {
+  const updateData = async (updater: any) => {
     if (!latestDataRef.current) return;
     const newState = typeof updater === 'function' ? updater(latestDataRef.current) : updater;
     
@@ -377,8 +379,8 @@ export default function App() {
     }
   }, [session, data.accounts]);
 
-  const qMatch = (q, ...vals) => !q || vals.some((v) => String(v || "").toLowerCase().includes(q));
-  const categories = useMemo(() => ["All", ...Array.from(new Set([...(data.customCategories || []), ...(data.items || []).map((i) => i.category)]))], [data.items, data.customCategories]);
+  const qMatch = (q: string, ...vals: any[]) => !q || vals.some((v) => String(v || "").toLowerCase().includes(q));
+  const categories = useMemo(() => ["All", ...Array.from(new Set([...(data.customCategories || []), ...(data.items || []).map((i: any) => i.category)]))], [data.items, data.customCategories]);
   const effectiveBranch = session?.role === "branch" ? session.branch : selectedBranch;
 
   // Memoized Rows
@@ -386,41 +388,41 @@ export default function App() {
     void nowTick;
     const q = staffSearch.trim().toLowerCase();
     return (data.items || [])
-      .filter((i) => qMatch(q, i.name, i.category))
-      .filter((i) => (staffCategory === "All" ? true : i.category === staffCategory))
-      .filter((i) => staffStatusFilter === "All" || data.statuses?.[effectiveBranch]?.[i.id]?.status === staffStatusFilter);
+      .filter((i: any) => qMatch(q, i.name, i.category))
+      .filter((i: any) => (staffCategory === "All" ? true : i.category === staffCategory))
+      .filter((i: any) => staffStatusFilter === "All" || data.statuses?.[effectiveBranch]?.[i.id]?.status === staffStatusFilter);
   }, [data.items, data.statuses, effectiveBranch, staffSearch, staffCategory, staffStatusFilter, nowTick]);
 
   const agentRows = useMemo(() => {
     void nowTick;
     const q = agentSearch.trim().toLowerCase();
-    return (data.branches || []).flatMap((branch) =>
-      (data.items || []).map((item) => ({ branch, item, ...(data.statuses?.[branch]?.[item.id] || {}) }))
+    return (data.branches || []).flatMap((branch: string) =>
+      (data.items || []).map((item: any) => ({ branch, item, ...(data.statuses?.[branch]?.[item.id] || {}) }))
     )
-    .filter((r) => r.status)
-    .filter((r) => agentBranchFilter === "All" || r.branch === agentBranchFilter)
-    .filter((r) => agentCategoryFilter === "All" || r.item.category === agentCategoryFilter)
-    .filter((r) => agentStatusFilter === "All" || r.status === agentStatusFilter)
-    .filter((r) => qMatch(q, r.item.name, r.item.category, r.branch, r.note))
-    .filter((r) => !agentPendingOnly || !(r.ack && r.ack.done))
-    .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+    .filter((r: any) => r.status)
+    .filter((r: any) => agentBranchFilter === "All" || r.branch === agentBranchFilter)
+    .filter((r: any) => agentCategoryFilter === "All" || r.item.category === agentCategoryFilter)
+    .filter((r: any) => agentStatusFilter === "All" || r.status === agentStatusFilter)
+    .filter((r: any) => qMatch(q, r.item.name, r.item.category, r.branch, r.note))
+    .filter((r: any) => !agentPendingOnly || !(r.ack && r.ack.done))
+    .sort((a: any, b: any) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
   }, [data, agentSearch, agentBranchFilter, agentCategoryFilter, agentStatusFilter, agentPendingOnly, nowTick]);
 
   const historyRows = useMemo(() => {
     const q = historySearch.trim().toLowerCase();
     return (data.history || [])
-      .filter((h) => historyBranchFilter === "All" || h.branch === historyBranchFilter)
-      .filter((h) => historyTypeFilter === "All" || h.type === historyTypeFilter)
-      .filter((h) => qMatch(q, h.branch, h.itemName, h.by, h.note));
+      .filter((h: any) => historyBranchFilter === "All" || h.branch === historyBranchFilter)
+      .filter((h: any) => historyTypeFilter === "All" || h.type === historyTypeFilter)
+      .filter((h: any) => qMatch(q, h.branch, h.itemName, h.by, h.note));
   }, [data.history, historySearch, historyBranchFilter, historyTypeFilter]);
 
   const summary = useMemo(() => {
     let soldout = 0, available = 0;
-    (data.branches || []).forEach((b) => (data.items || []).forEach((i) => (data.statuses?.[b]?.[i.id]?.status === "soldout" ? soldout++ : available++)));
+    (data.branches || []).forEach((b: string) => (data.items || []).forEach((i: any) => (data.statuses?.[b]?.[i.id]?.status === "soldout" ? soldout++ : available++)));
     return { soldout, available };
   }, [data]);
 
-  const pushHistory = (entry) => updateData((p) => ({ ...p, history: [entry, ...(p.history || [])].slice(0, MAX_HISTORY) }));
+  const pushHistory = (entry: any) => updateData((p: any) => ({ ...p, history: [entry, ...(p.history || [])].slice(0, MAX_HISTORY) }));
 
   // ----- Gemini Actions -----
   const handleAutoReason = async () => {
@@ -429,28 +431,28 @@ export default function App() {
     try {
       const prompt = `You are an AI for a restaurant dashboard. The item "${noteModal.item.name}" (Category: ${noteModal.item.category}) is being marked as "86" (sold out). Provide a short, professional, realistic 1-sentence reason why it might be sold out (e.g., ingredient shortage, delivery delay, equipment issue). Do not use quotes. Limit to 10 words.`;
       const text = await callGemini(prompt);
-      setNoteModal(prev => ({ ...prev, value: text.trim(), error: "" }));
+      setNoteModal((prev: any) => ({ ...prev, value: text.trim(), error: "" }));
     } catch (error) {
       showToast("Failed to generate reason");
     }
     setIsGeneratingReason(false);
   };
 
-  const handleGenerateApology = async (item, branch) => {
+  const handleGenerateApology = async (item: any, branch: string) => {
     setApologyModal({ open: true, item, text: "", loading: true });
     try {
       const prompt = `Write a short, polite 2-sentence apology to a customer because their ordered item "${item.name}" is currently sold out at our ${branch} branch. Suggest they choose an alternative. Keep it professional and empathetic.`;
       const text = await callGemini(prompt);
-      setApologyModal(prev => ({ ...prev, text: text.trim(), loading: false }));
+      setApologyModal((prev: any) => ({ ...prev, text: text.trim(), loading: false }));
     } catch (error) {
-      setApologyModal(prev => ({ ...prev, text: "Error generating apology. Please try again.", loading: false }));
+      setApologyModal((prev: any) => ({ ...prev, text: "Error generating apology. Please try again.", loading: false }));
     }
   };
 
   const handleGenerateInsights = async () => {
-    setInsights(prev => ({ ...prev, loading: true }));
+    setInsights((prev: any) => ({ ...prev, loading: true }));
     try {
-      const recentHistory = data.history.slice(0, 50).map(h => `${h.type} on ${h.itemName} at ${h.branch} (${h.note})`);
+      const recentHistory = data.history.slice(0, 50).map((h: any) => `${h.type} on ${h.itemName} at ${h.branch} (${h.note})`);
       const prompt = `Analyze this recent restaurant menu availability history: ${JSON.stringify(recentHistory)}. Identify which items frequently go out of stock, which branches struggle the most, and provide 2-3 actionable inventory recommendations. Format with short bullet points. Do not use markdown headers, just plain text with bullets.`;
       const text = await callGemini(prompt);
       setInsights({ text: text.trim(), loading: false });
@@ -461,46 +463,46 @@ export default function App() {
   };
 
   // ----- Actions -----
-  const setStatus = (branch, item, nextStatus, note = "") => {
+  const setStatus = (branch: string, item: any, nextStatus: string, note = "") => {
     const actor = session?.role === "branch" ? `Staff (${branch})` : session?.role === "admin" ? "Admin" : "System";
     const t = nowISO();
 
-    updateData((p) => {
+    updateData((p: any) => {
       const prevRec = p.statuses?.[branch]?.[item.id];
       if (!prevRec) return p;
       const nextRec = { ...prevRec, status: nextStatus, note, updatedAt: t, updatedBy: actor, ack: { done: false, at: null, by: null } };
       return { ...p, statuses: { ...p.statuses, [branch]: { ...p.statuses[branch], [item.id]: nextRec } } };
     });
 
-    pushHistory({ id: uid(), type: "status", branch, itemId: item.id, itemName: item.name, note: `${STATUS[data.statuses?.[branch]?.[item.id]?.status]?.label || ""} → ${STATUS[nextStatus]?.label}${note ? ` • ${note}` : ""}`, at: t, by: actor, duration: durationShort(data.statuses?.[branch]?.[item.id]?.updatedAt, t) });
+    pushHistory({ id: uid(), type: "status", branch, itemId: item.id, itemName: item.name, note: `${(STATUS as any)[data.statuses?.[branch]?.[item.id]?.status]?.label || ""} → ${(STATUS as any)[nextStatus]?.label}${note ? ` • ${note}` : ""}`, at: t, by: actor, duration: durationShort(data.statuses?.[branch]?.[item.id]?.updatedAt, t) });
     showToast(nextStatus === "soldout" ? `${branch}: ${item.name} marked 86` : `${branch}: ${item.name} restored`);
   };
 
-  const cycleStatus = (branch, item) => {
+  const cycleStatus = (branch: string, item: any) => {
     const rec = data.statuses?.[branch]?.[item.id];
     if (!rec) return;
     if (rec.status === "soldout") setStatus(branch, item, "available", "");
     else setNoteModal({ open: true, branch, item, value: rec.note || "", error: "" });
   };
 
-  const saveNote = (e) => {
+  const saveNote = (e?: any) => {
     if (e) e.preventDefault();
     if (!noteModal.item) return;
     const v = (noteModal.value || "").trim();
-    if (!v) return setNoteModal((m) => ({ ...m, error: "Reason is required when marking 86." }));
+    if (!v) return setNoteModal((m: any) => ({ ...m, error: "Reason is required when marking 86." }));
     setStatus(noteModal.branch, noteModal.item, "soldout", v);
     setNoteModal({ open: false, branch: "", item: null, value: "", error: "" });
   };
 
-  const confirmAck = (branch, itemId) => {
+  const confirmAck = (branch: string, itemId: number) => {
     const actor = "Agent";
     const t = nowISO();
-    updateData((p) => {
+    updateData((p: any) => {
       const rec = p.statuses?.[branch]?.[itemId];
       if (!rec) return p;
       return { ...p, statuses: { ...p.statuses, [branch]: { ...p.statuses[branch], [itemId]: { ...rec, ack: { done: true, at: t, by: actor } } } } };
     });
-    pushHistory({ id: uid(), type: "ack", branch, itemId, itemName: data.items.find((x) => x.id === itemId)?.name || "Item", note: "Confirmed platform sync", at: t, by: actor, duration: "—" });
+    pushHistory({ id: uid(), type: "ack", branch, itemId, itemName: data.items.find((x: any) => x.id === itemId)?.name || "Item", note: "Confirmed platform sync", at: t, by: actor, duration: "—" });
   };
 
   // ----- Render: Loading & Error States -----
@@ -532,7 +534,7 @@ export default function App() {
 
   // ----- Render: Login -----
   if (!session) {
-    const submitLogin = (mode, branch, pin, setError) => {
+    const submitLogin = (mode: string, branch: string, pin: string, setError: any) => {
       setError("");
       const p = pin.trim();
       if (!p) return setError("Enter PIN");
@@ -562,7 +564,7 @@ export default function App() {
   const showInsights = session.role === "admin";
   const showSettings = session.role === "admin";
 
-  const TabBtn = ({ id, label, icon }) => (
+  const TabBtn = ({ id, label, icon }: any) => (
     <button type="button" onClick={() => setActiveTab(id)} className={cn("px-4 py-2.5 rounded-xl text-sm border inline-flex items-center gap-2 font-medium transition-all", activeTab === id ? "bg-slate-900 text-white border-slate-900 shadow-md" : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50")}>
       {icon} {label}
     </button>
@@ -592,9 +594,9 @@ export default function App() {
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-6">
             {[["86 Items", summary.soldout, "rose"], ["Available Items", summary.available, "emerald"]].map(([label, value, c]) => (
-              <div key={label} className={cn("rounded-xl border p-4 shadow-sm", c === "rose" ? "border-rose-200 bg-rose-50/50" : "border-emerald-200 bg-emerald-50/50")}>
-                <div className={cn("text-xs font-semibold uppercase tracking-wider mb-1", c === "rose" ? "text-rose-700" : "text-emerald-700")}>{label}</div>
-                <div className={cn("text-3xl font-bold", c === "rose" ? "text-rose-700" : "text-emerald-700")}>{value}</div>
+              <div key={label as string} className={cn("rounded-xl border p-4 shadow-sm", c === "rose" ? "border-rose-200 bg-rose-50/50" : "border-emerald-200 bg-emerald-50/50")}>
+                <div className={cn("text-xs font-semibold uppercase tracking-wider mb-1", c === "rose" ? "text-rose-700" : "text-emerald-700")}>{label as string}</div>
+                <div className={cn("text-3xl font-bold", c === "rose" ? "text-rose-700" : "text-emerald-700")}>{value as number}</div>
               </div>
             ))}
           </div>
@@ -617,7 +619,7 @@ export default function App() {
                 <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-1.5">Branch</label>
                 {session.role === "admin" ? (
                   <select value={selectedBranch} onChange={(e) => setSelectedBranch(e.target.value)} className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-slate-400 bg-white h-10">
-                    {(data.branches || []).map((b) => <option key={b}>{b}</option>)}
+                    {(data.branches || []).map((b: string) => <option key={b}>{b}</option>)}
                   </select>
                 ) : (
                   <div className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm bg-slate-50 text-slate-700 font-medium h-10 flex items-center">{session.branch}</div>
@@ -644,14 +646,14 @@ export default function App() {
             </div>
 
             <div className="grid gap-3 max-h-[60vh] overflow-y-auto pr-1">
-              {staffRows.map((item) => {
+              {staffRows.map((item: any) => {
                 const rec = data.statuses?.[effectiveBranch]?.[item.id];
                 if (!rec) return null;
                 const is86 = rec.status === "soldout";
                 const ack = rec.ack || { done: false };
 
                 return (
-                  <div key={item.id} className={cn("border rounded-xl p-4 transition-colors shadow-sm", STATUS[rec.status].card)}>
+                  <div key={item.id} className={cn("border rounded-xl p-4 transition-colors shadow-sm", (STATUS as any)[rec.status].card)}>
                     <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                       <div className="min-w-0">
                         <div className="font-bold text-base md:text-lg text-slate-900">{item.name}</div>
@@ -669,8 +671,8 @@ export default function App() {
                       <div className="flex items-center gap-3 self-end md:self-auto mt-2 md:mt-0">
                         <div className={cn("px-4 py-2.5 rounded-xl border bg-white min-w-[120px] text-center shadow-sm", is86 ? "border-rose-200" : "border-emerald-200")}>
                           <div className="flex items-center justify-center gap-2">
-                            <span className={cn("w-2.5 h-2.5 rounded-full", STATUS[rec.status].dot, is86 && "animate-pulse")} />
-                            <span className={cn("text-sm font-bold tracking-wide", STATUS[rec.status].text)}>{STATUS[rec.status].label}</span>
+                            <span className={cn("w-2.5 h-2.5 rounded-full", (STATUS as any)[rec.status].dot, is86 && "animate-pulse")} />
+                            <span className={cn("text-sm font-bold tracking-wide", (STATUS as any)[rec.status].text)}>{(STATUS as any)[rec.status].label}</span>
                           </div>
                         </div>
 
@@ -732,7 +734,7 @@ export default function App() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 bg-white">
-                  {agentRows.map((r) => {
+                  {agentRows.map((r: any) => {
                     const ack = r.ack || { done: false };
                     return (
                       <tr key={`${r.branch}-${r.item.id}`} className="hover:bg-slate-50/50 transition-colors">
@@ -747,7 +749,7 @@ export default function App() {
                         </td>
                         <td className="p-4 align-top">
                           <span className={cn("px-3 py-1.5 rounded-lg text-xs font-bold inline-block border", r.status === "soldout" ? "bg-rose-50 text-rose-700 border-rose-200" : "bg-emerald-50 text-emerald-700 border-emerald-200")}>
-                            {STATUS[r.status].label}
+                            {(STATUS as any)[r.status].label}
                           </span>
                         </td>
                         <td className="p-4 align-top text-center min-w-[140px]">
@@ -820,7 +822,7 @@ export default function App() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 bg-white">
-                  {historyRows.map((h) => (
+                  {historyRows.map((h: any) => (
                     <tr key={h.id} className={cn("hover:bg-slate-50 transition-colors", h.type === "ack" && "bg-indigo-50/20")}>
                       <td className="p-3.5 text-xs text-slate-500">{fmtWithSec(h.at)}</td>
                       <td className="p-3.5 font-medium text-slate-900">{h.branch}</td>
@@ -894,7 +896,7 @@ export default function App() {
                 <h3 className="text-lg font-bold text-slate-900">Security</h3>
                 <p className="text-xs text-slate-500 mt-0.5">Manage master access PINs.</p>
               </div>
-              <form onSubmit={(e) => { e.preventDefault(); const a = adminPin.trim(); const g = agentPin.trim(); if(!a||!g) return showToast("Pins required"); updateData(p => ({...p, accounts: {...p.accounts, admin: {pin:a}, agent: {pin:g}}})); showToast("Security PINs updated"); }} className="space-y-4">
+              <form onSubmit={(e) => { e.preventDefault(); const a = adminPin.trim(); const g = agentPin.trim(); if(!a||!g) return showToast("Pins required"); updateData((p: any) => ({...p, accounts: {...p.accounts, admin: {pin:a}, agent: {pin:g}}})); showToast("Security PINs updated"); }} className="space-y-4">
                 <div className="space-y-3">
                   <div>
                     <label className="text-xs font-semibold text-slate-600 uppercase tracking-wider block mb-1.5">Admin PIN</label>
@@ -918,7 +920,7 @@ export default function App() {
                 <h3 className="text-lg font-bold text-slate-900">Locations</h3>
                 <p className="text-xs text-slate-500 mt-0.5">Manage branches and login PINs.</p>
               </div>
-              <form onSubmit={(e) => { e.preventDefault(); const n = newBranchName.trim(); const p = newBranchPin.trim() || "1234"; if(!n) return; if(data.branches.some(b => b.toLowerCase() === n.toLowerCase())) return showToast("Branch exists"); const t = nowISO(); updateData(pr => ({...pr, branches: [...pr.branches, n], statuses: {...pr.statuses, [n]: Object.fromEntries(pr.items.map(i => [i.id, {status:"available", note:"", updatedAt:t, updatedBy:"Admin", ack:{done:true,at:t,by:"Admin"}}]))}, accounts: {...pr.accounts, branches: {...pr.accounts.branches, [n]: {pin: p}}}})); setNewBranchName(""); setNewBranchPin("1234"); showToast(`Branch ${n} added`); }} className="flex flex-col gap-2 p-3 bg-slate-50 rounded-xl border border-slate-100">
+              <form onSubmit={(e: any) => { e.preventDefault(); const n = newBranchName.trim(); const p = newBranchPin.trim() || "1234"; if(!n) return; if(data.branches.some((b: string) => b.toLowerCase() === n.toLowerCase())) return showToast("Branch exists"); const t = nowISO(); updateData((pr: any) => ({...pr, branches: [...pr.branches, n], statuses: {...pr.statuses, [n]: Object.fromEntries(pr.items.map((i: any) => [i.id, {status:"available", note:"", updatedAt:t, updatedBy:"Admin", ack:{done:true,at:t,by:"Admin"}}]))}, accounts: {...pr.accounts, branches: {...pr.accounts.branches, [n]: {pin: p}}}})); setNewBranchName(""); setNewBranchPin("1234"); showToast(`Branch ${n} added`); }} className="flex flex-col gap-2 p-3 bg-slate-50 rounded-xl border border-slate-100">
                 <input value={newBranchName} onChange={(e) => setNewBranchName(e.target.value)} className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100 transition-all bg-white" placeholder="Branch name" required />
                 <div className="flex gap-2">
                   <input value={newBranchPin} onChange={(e) => setNewBranchPin(e.target.value)} className="w-1/2 rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100 transition-all bg-white" placeholder="PIN (Default 1234)" />
@@ -926,15 +928,15 @@ export default function App() {
                 </div>
               </form>
               <div className="space-y-2 max-h-[45vh] overflow-y-auto pr-1">
-                {(data.branches || []).map((b) => (
+                {(data.branches || []).map((b: string) => (
                   <div key={b} className="border border-slate-200 rounded-xl p-3 bg-white shadow-sm flex flex-col gap-2">
                     <div className="flex items-center justify-between">
                       <div className="text-sm font-bold text-slate-900">{b}</div>
-                      <button type="button" onClick={() => { if(data.branches.length <= 1) return showToast("Need at least 1 branch"); updateData(p => { const nb = p.branches.filter(x => x !== b); const ns = {...p.statuses}; delete ns[b]; const na = {...p.accounts.branches}; delete na[b]; return {...p, branches: nb, statuses: ns, accounts: {...p.accounts, branches: na}}}); showToast("Branch deleted"); }} className="px-2.5 py-1 rounded-lg text-xs font-semibold border border-rose-200 text-rose-600 hover:bg-rose-50 transition-colors">Remove</button>
+                      <button type="button" onClick={() => { if(data.branches.length <= 1) return showToast("Need at least 1 branch"); updateData((p: any) => { const nb = p.branches.filter((x: string) => x !== b); const ns = {...p.statuses}; delete ns[b]; const na = {...p.accounts.branches}; delete na[b]; return {...p, branches: nb, statuses: ns, accounts: {...p.accounts, branches: na}}}); showToast("Branch deleted"); }} className="px-2.5 py-1 rounded-lg text-xs font-semibold border border-rose-200 text-rose-600 hover:bg-rose-50 transition-colors">Remove</button>
                     </div>
                     <div className="flex items-center gap-2">
                       <div className="text-xs font-medium text-slate-500 w-8">PIN:</div>
-                      <input defaultValue={data.accounts?.branches?.[b]?.pin || "1234"} onBlur={(e) => { const p = e.target.value.trim(); if(p) { updateData(prev => ({...prev, accounts: {...prev.accounts, branches: {...prev.accounts.branches, [b]: {pin: p}}}})); showToast("Branch PIN saved"); } }} className="flex-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-sm outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100 transition-all bg-slate-50" placeholder="Set PIN" />
+                      <input defaultValue={data.accounts?.branches?.[b]?.pin || "1234"} onBlur={(e) => { const p = e.target.value.trim(); if(p) { updateData((prev: any) => ({...prev, accounts: {...prev.accounts, branches: {...prev.accounts.branches, [b]: {pin: p}}}})); showToast("Branch PIN saved"); } }} className="flex-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-sm outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100 transition-all bg-slate-50" placeholder="Set PIN" />
                     </div>
                   </div>
                 ))}
@@ -948,14 +950,14 @@ export default function App() {
               </div>
 
               <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 space-y-3">
-                <form onSubmit={(e) => { e.preventDefault(); const n = newCategoryName.trim(); if(!n) return; if(categories.some(c => c.toLowerCase() === n.toLowerCase())) return showToast("Exists"); updateData(p => ({...p, customCategories: [...p.customCategories, n]})); setNewCategoryName(""); setNewItemCategory(n); showToast("Category added"); }} className="flex gap-2">
+                <form onSubmit={(e: any) => { e.preventDefault(); const n = newCategoryName.trim(); if(!n) return; if(categories.some(c => c.toLowerCase() === n.toLowerCase())) return showToast("Exists"); updateData((p: any) => ({...p, customCategories: [...p.customCategories, n]})); setNewCategoryName(""); setNewItemCategory(n); showToast("Category added"); }} className="flex gap-2">
                   <input value={newCategoryName} onChange={(e) => setNewCategoryName(e.target.value)} className="flex-1 rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100 transition-all bg-white" placeholder="Add category..." />
                   <button type="submit" className="px-4 py-2 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-800 text-sm font-semibold transition-colors">Add</button>
                 </form>
 
                 <div className="h-px bg-slate-200 w-full" />
 
-                <form onSubmit={(e) => { e.preventDefault(); const n = newItemName.trim(); if(!n) return; const id = Math.max(0, ...data.items.map(i => i.id)) + 1; const t = nowISO(); updateData(p => ({...p, items: [...p.items, {id, name:n, category:newItemCategory}], customCategories: p.customCategories.includes(newItemCategory) ? p.customCategories : [...p.customCategories, newItemCategory], statuses: Object.fromEntries(p.branches.map(b => [b, {...p.statuses[b], [id]: {status:"available", note:"", updatedAt:t, updatedBy:"Admin", ack:{done:true,at:t,by:"Admin"}}}]))})); setNewItemName(""); showToast("Item added"); }} className="flex flex-col gap-2">
+                <form onSubmit={(e: any) => { e.preventDefault(); const n = newItemName.trim(); if(!n) return; const id = Math.max(0, ...data.items.map((i: any) => i.id)) + 1; const t = nowISO(); updateData((p: any) => ({...p, items: [...p.items, {id, name:n, category:newItemCategory}], customCategories: p.customCategories.includes(newItemCategory) ? p.customCategories : [...p.customCategories, newItemCategory], statuses: Object.fromEntries(p.branches.map((b: string) => [b, {...p.statuses[b], [id]: {status:"available", note:"", updatedAt:t, updatedBy:"Admin", ack:{done:true,at:t,by:"Admin"}}}]))})); setNewItemName(""); showToast("Item added"); }} className="flex flex-col gap-2">
                   <input value={newItemName} onChange={(e) => setNewItemName(e.target.value)} className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100 transition-all bg-white" placeholder="New item name..." required />
                   <div className="flex gap-2">
                     <select value={newItemCategory} onChange={(e) => setNewItemCategory(e.target.value)} className="w-1/2 rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-slate-400 bg-white">
@@ -975,16 +977,16 @@ export default function App() {
 
               <div className="space-y-2 max-h-[35vh] overflow-y-auto pr-1">
                 {(data.items || [])
-                  .filter((i) => menuCategoryFilter === "All" || i.category === menuCategoryFilter)
-                  .filter((i) => qMatch(menuSearch.trim().toLowerCase(), i.name, i.category))
-                  .sort((a, b) => a.name.localeCompare(b.name))
-                  .map((it) => (
+                  .filter((i: any) => menuCategoryFilter === "All" || i.category === menuCategoryFilter)
+                  .filter((i: any) => qMatch(menuSearch.trim().toLowerCase(), i.name, i.category))
+                  .sort((a: any, b: any) => a.name.localeCompare(b.name))
+                  .map((it: any) => (
                     <div key={it.id} className="border border-slate-200 rounded-xl p-3 flex items-center justify-between gap-3 bg-white hover:bg-slate-50 transition-colors shadow-sm">
                       <div className="min-w-0">
                         <div className="text-sm font-bold text-slate-900 truncate">{it.name}</div>
                         <div className="text-[11px] font-medium text-slate-500 uppercase tracking-wider mt-0.5">{it.category}</div>
                       </div>
-                      <button type="button" onClick={() => { updateData(p => ({...p, items: p.items.filter(i => i.id !== it.id), statuses: Object.fromEntries(p.branches.map(b => { const s = {...p.statuses[b]}; delete s[it.id]; return [b, s]; })), history: p.history.filter(h => h.itemId !== it.id)})); showToast("Item deleted"); }} className="px-2.5 py-1.5 rounded-lg text-xs font-semibold border border-rose-200 text-rose-600 hover:bg-rose-50 transition-colors">Delete</button>
+                      <button type="button" onClick={() => { updateData((p: any) => ({...p, items: p.items.filter((i: any) => i.id !== it.id), statuses: Object.fromEntries(p.branches.map((b: string) => { const s = {...p.statuses[b]}; delete s[it.id]; return [b, s]; })), history: p.history.filter((h: any) => h.itemId !== it.id)})); showToast("Item deleted"); }} className="px-2.5 py-1.5 rounded-lg text-xs font-semibold border border-rose-200 text-rose-600 hover:bg-rose-50 transition-colors">Delete</button>
                     </div>
                   ))}
               </div>
@@ -1020,7 +1022,7 @@ export default function App() {
               Auto-Suggest ✨
             </button>
           </div>
-          <textarea autoFocus value={noteModal.value} onChange={(e) => setNoteModal((m) => ({ ...m, value: e.target.value, error: "" }))} rows={3} placeholder="e.g. Waiting for delivery, Spoiled batch..." className={cn("w-full rounded-xl border px-3.5 py-3 text-sm outline-none transition-all resize-none", noteModal.error ? "border-rose-300 focus:border-rose-400 focus:ring-2 focus:ring-rose-100 bg-rose-50" : "border-slate-200 focus:border-slate-400 focus:ring-2 focus:ring-slate-100")} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); saveNote(); } }} />
+          <textarea autoFocus value={noteModal.value} onChange={(e) => setNoteModal((m: any) => ({ ...m, value: e.target.value, error: "" }))} rows={3} placeholder="e.g. Waiting for delivery, Spoiled batch..." className={cn("w-full rounded-xl border px-3.5 py-3 text-sm outline-none transition-all resize-none", noteModal.error ? "border-rose-300 focus:border-rose-400 focus:ring-2 focus:ring-rose-100 bg-rose-50" : "border-slate-200 focus:border-slate-400 focus:ring-2 focus:ring-slate-100")} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); saveNote(); } }} />
           {noteModal.error && <p className="text-xs font-medium text-rose-600 mt-1.5">{noteModal.error}</p>}
           <div className="flex justify-end gap-3 mt-6">
             <button type="button" onClick={() => setNoteModal({ open: false, branch: "", item: null, value: "", error: "" })} className="px-4 py-2.5 rounded-xl font-medium border border-slate-200 hover:bg-slate-50 text-sm transition-colors">Cancel</button>
@@ -1066,13 +1068,13 @@ export default function App() {
 }
 
 // ----- External Components -----
-function LoginScreen({ branches, onSubmit }) {
+function LoginScreen({ branches, onSubmit }: any) {
   const [mode, setMode] = useState("branch");
   const [branch, setBranch] = useState(branches?.[0] || "");
   const [pin, setPin] = useState("");
   const [error, setError] = useState("");
 
-  const handleSubmit = (e) => {
+  const handleSubmit = (e: any) => {
     e.preventDefault();
     onSubmit(mode, branch, pin, setError);
   };
@@ -1109,7 +1111,7 @@ function LoginScreen({ branches, onSubmit }) {
           <div className="animate-in fade-in slide-in-from-top-1 duration-200">
             <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1.5 ml-1">Location</label>
             <select value={branch} onChange={(e) => setBranch(e.target.value)} className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100 transition-all bg-white font-medium">
-              {branches.map((b) => <option key={b}>{b}</option>)}
+              {branches.map((b: string) => <option key={b}>{b}</option>)}
             </select>
           </div>
         )}

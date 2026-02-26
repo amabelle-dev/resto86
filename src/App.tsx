@@ -6,8 +6,22 @@ import { getFirestore, doc, setDoc, onSnapshot } from 'firebase/firestore';
 
 /**
  * RESTO 86 - CLOUD EDITION
- * Final Working Version
+ * Production Ready Version (Fixed TS Build Errors)
  */
+
+// Declare globals for TypeScript compiler
+declare global {
+  interface Window {
+    __firebase_config?: string;
+    __app_id?: string;
+    __initial_auth_token?: string;
+  }
+}
+
+// Access globals safely for different environments
+const _env_config = typeof window !== 'undefined' ? window.__firebase_config : undefined;
+const _env_app_id = typeof window !== 'undefined' ? window.__app_id : undefined;
+const _env_token = typeof window !== 'undefined' ? window.__initial_auth_token : undefined;
 
 // ----- Firebase Setup -----
 const fallbackConfig = {
@@ -20,12 +34,11 @@ const fallbackConfig = {
   measurementId: "G-Z9NQT0HB95"
 };
 
-// This ensures it works both in StackBlitz and on your live Vercel site
-const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : fallbackConfig;
+const firebaseConfig = _env_config ? JSON.parse(_env_config) : fallbackConfig;
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
-const appId = typeof __app_id !== 'undefined' ? __app_id : "resto-86-production";
+const appId = _env_app_id || "resto-86-production";
 
 // ----- Seed data -----
 const DEFAULT_BRANCHES = ["Bin Mahmoud", "Lusail", "Wakra"];
@@ -40,7 +53,7 @@ const DEFAULT_ITEMS = [
   [8, "Pasta", "Mains"],
   [9, "Cheese Sauce", "Sauces"],
   [10, "Dumplings", "Mains"],
-].map(([id, name, category]) => ({ id, name, category }));
+].map(([id, name, category]) => ({ id: id as number, name: name as string, category: category as string }));
 
 const STATUS = {
   available: { label: "AVAILABLE", card: "bg-emerald-50 border-emerald-200", text: "text-emerald-700", dot: "bg-emerald-500" },
@@ -52,7 +65,7 @@ const MAX_HISTORY = 500;
 
 // ----- Gemini API Integration -----
 const callGemini = async (prompt: string) => {
-  const apiKey = ""; // Canvas internal key provided at runtime
+  const apiKey = ""; 
   const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
   const payload = { contents: [{ parts: [{ text: prompt }] }] };
 
@@ -112,10 +125,10 @@ const copyToClipboard = (text: string, onSuccess?: () => void, onFail?: () => vo
 function buildDefaultState() {
   const t = nowISO();
   const statuses = Object.fromEntries(
-    DEFAULT_BRANCHES.map((b) => [
+    DEFAULT_BRANCHES.map((b: string) => [
       b,
       Object.fromEntries(
-        DEFAULT_ITEMS.map((it) => [
+        DEFAULT_ITEMS.map((it: any) => [
           it.id,
           { status: "available", note: "", updatedAt: t, updatedBy: "System", ack: { done: true, at: t, by: "System" } },
         ])
@@ -145,9 +158,9 @@ function normalizeState(raw: any) {
   const t = nowISO();
 
   const statuses = { ...(merged.statuses || {}) };
-  branches.forEach((b) => {
+  branches.forEach((b: string) => {
     statuses[b] = statuses[b] || {};
-    items.forEach((it) => {
+    items.forEach((it: any) => {
       const cur = statuses[b][it.id] || { status: "available", note: "", updatedAt: t, updatedBy: "System" };
       if (!cur.ack) cur.ack = { done: true, at: cur.updatedAt || t, by: cur.updatedBy || "System" };
       statuses[b][it.id] = cur;
@@ -155,8 +168,8 @@ function normalizeState(raw: any) {
   });
 
   const branchAcc = (merged.accounts || {}).branches || {};
-  branches.forEach((b) => { if (!branchAcc[b]) branchAcc[b] = { pin: "1234" }; });
-  Object.keys(branchAcc).forEach((b) => { if (!branches.includes(b)) delete branchAcc[b]; });
+  branches.forEach((b: string) => { if (!branchAcc[b]) branchAcc[b] = { pin: "1234" }; });
+  Object.keys(branchAcc).forEach((b: string) => { if (!branches.includes(b)) delete branchAcc[b]; });
 
   return {
     ...merged,
@@ -284,8 +297,8 @@ export default function App() {
   useEffect(() => {
     const initAuth = async () => {
       try {
-        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-          await signInWithCustomToken(auth, __initial_auth_token);
+        if (_env_token) {
+          await signInWithCustomToken(auth, _env_token);
         } else {
           await signInAnonymously(auth);
         }
@@ -704,7 +717,7 @@ export default function App() {
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 md:p-5 space-y-4 animate-in fade-in slide-in-from-bottom-2">
             <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
               <select value={agentBranchFilter} onChange={(e) => setAgentBranchFilter(e.target.value)} className="rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-slate-400 bg-white">
-                {["All Branches", ...(data.branches || [])].map((b) => <option key={b} value={b === "All Branches" ? "All" : b}>{b}</option>)}
+                {["All Branches", ...(data.branches || [])].map((b: string) => <option key={b} value={b === "All Branches" ? "All" : b}>{b}</option>)}
               </select>
               <select value={agentCategoryFilter} onChange={(e) => setAgentCategoryFilter(e.target.value)} className="rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-slate-400 bg-white">
                 {categories.map((c) => <option key={c}>{c}</option>)}
@@ -762,7 +775,7 @@ export default function App() {
                               ack.done ? "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed" : "bg-indigo-600 text-white border-indigo-600 hover:bg-indigo-700 focus:ring-2 focus:ring-offset-1 focus:ring-indigo-500"
                             )}
                           >
-                            {ack.done ? <><CheckCircle2 className="w-4 h-4" /> Confirmed</> : "Confirm Sync"}
+                            {ack.done ? <><CheckCircle2 className="w-3.5 h-3.5" /> Confirmed</> : "Confirm Sync"}
                           </button>
                           {ack.done && ack.at && <div className="text-[11px] text-slate-400 mt-2 font-medium">By {ack.by || "Agent"}<br/>{fmtWithSec(ack.at)}</div>}
                           {r.status === "soldout" && (
@@ -800,7 +813,7 @@ export default function App() {
                 <SearchInput value={historySearch} onChange={setHistorySearch} placeholder="Search history logs..." />
               </div>
               <select value={historyBranchFilter} onChange={(e) => setHistoryBranchFilter(e.target.value)} className="rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-slate-400 bg-white">
-                {["All Branches", ...(data.branches || [])].map((b) => <option key={b} value={b === "All Branches" ? "All" : b}>{b}</option>)}
+                {["All Branches", ...(data.branches || [])].map((b: string) => <option key={b} value={b === "All Branches" ? "All" : b}>{b}</option>)}
               </select>
               <select value={historyTypeFilter} onChange={(e) => setHistoryTypeFilter(e.target.value)} className="rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-slate-400 bg-white">
                 <option value="All">All Events</option>
@@ -896,7 +909,7 @@ export default function App() {
                 <h3 className="text-lg font-bold text-slate-900">Security</h3>
                 <p className="text-xs text-slate-500 mt-0.5">Manage master access PINs.</p>
               </div>
-              <form onSubmit={(e) => { e.preventDefault(); const a = adminPin.trim(); const g = agentPin.trim(); if(!a||!g) return showToast("Pins required"); updateData((p: any) => ({...p, accounts: {...p.accounts, admin: {pin:a}, agent: {pin:g}}})); showToast("Security PINs updated"); }} className="space-y-4">
+              <form onSubmit={(e: any) => { e.preventDefault(); const a = adminPin.trim(); const g = agentPin.trim(); if(!a||!g) return showToast("Pins required"); updateData((p: any) => ({...p, accounts: {...p.accounts, admin: {pin:a}, agent: {pin:g}}})); showToast("Security PINs updated"); }} className="space-y-4">
                 <div className="space-y-3">
                   <div>
                     <label className="text-xs font-semibold text-slate-600 uppercase tracking-wider block mb-1.5">Admin PIN</label>
@@ -936,7 +949,7 @@ export default function App() {
                     </div>
                     <div className="flex items-center gap-2">
                       <div className="text-xs font-medium text-slate-500 w-8">PIN:</div>
-                      <input defaultValue={data.accounts?.branches?.[b]?.pin || "1234"} onBlur={(e) => { const p = e.target.value.trim(); if(p) { updateData((prev: any) => ({...prev, accounts: {...prev.accounts, branches: {...prev.accounts.branches, [b]: {pin: p}}}})); showToast("Branch PIN saved"); } }} className="flex-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-sm outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100 transition-all bg-slate-50" placeholder="Set PIN" />
+                      <input defaultValue={data.accounts?.branches?.[b]?.pin || "1234"} onBlur={(e: any) => { const p = e.target.value.trim(); if(p) { updateData((prev: any) => ({...prev, accounts: {...prev.accounts, branches: {...prev.accounts.branches, [b]: {pin: p}}}})); showToast("Branch PIN saved"); } }} className="flex-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-sm outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100 transition-all bg-slate-50" placeholder="Set PIN" />
                     </div>
                   </div>
                 ))}
@@ -1022,7 +1035,7 @@ export default function App() {
               Auto-Suggest ✨
             </button>
           </div>
-          <textarea autoFocus value={noteModal.value} onChange={(e) => setNoteModal((m: any) => ({ ...m, value: e.target.value, error: "" }))} rows={3} placeholder="e.g. Waiting for delivery, Spoiled batch..." className={cn("w-full rounded-xl border px-3.5 py-3 text-sm outline-none transition-all resize-none", noteModal.error ? "border-rose-300 focus:border-rose-400 focus:ring-2 focus:ring-rose-100 bg-rose-50" : "border-slate-200 focus:border-slate-400 focus:ring-2 focus:ring-slate-100")} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); saveNote(); } }} />
+          <textarea autoFocus value={noteModal.value} onChange={(e: any) => setNoteModal((m: any) => ({ ...m, value: e.target.value, error: "" }))} rows={3} placeholder="e.g. Waiting for delivery, Spoiled batch..." className={cn("w-full rounded-xl border px-3.5 py-3 text-sm outline-none transition-all resize-none", noteModal.error ? "border-rose-300 focus:border-rose-400 focus:ring-2 focus:ring-rose-100 bg-rose-50" : "border-slate-200 focus:border-slate-400 focus:ring-2 focus:ring-slate-100")} onKeyDown={(e: any) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); saveNote(); } }} />
           {noteModal.error && <p className="text-xs font-medium text-rose-600 mt-1.5">{noteModal.error}</p>}
           <div className="flex justify-end gap-3 mt-6">
             <button type="button" onClick={() => setNoteModal({ open: false, branch: "", item: null, value: "", error: "" })} className="px-4 py-2.5 rounded-xl font-medium border border-slate-200 hover:bg-slate-50 text-sm transition-colors">Cancel</button>
